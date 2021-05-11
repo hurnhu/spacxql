@@ -54,7 +54,7 @@
 <style>
 .center {
   align-items: center;
-  height: 90vw;
+  height: 40vw;
 }
 </style>
 
