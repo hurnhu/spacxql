@@ -1,58 +1,154 @@
 <template>
   <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-pwa" target="_blank" rel="noopener">pwa</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
+    <div id="buttonGroup" :class="{'field':true,
+     'is-grouped':true,
+     'is-grouped-centered':true,
+      'center':launches.length == 0,
+      'animate__animated': true
+    }">
+      <p class="control">
+        <el-select multiple
+                   v-model="dSelect"
+                   placeholder="Select"
+                   @remove-tag="mReset()"
+        >
+          <el-option
+              v-for="item in options"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+          >
+          </el-option>
+        </el-select>
+      </p>
+      <p class="control animate__animated animate__pulse animate__infinite">
+        <button class="button is-danger" @click="mFetch">Launch</button>
+      </p>
+    </div>
+    <table id="launchTable" class="table animate__backInUp animate__animated" v-if="launches.length > 0">
+      <thead>
+      <tr>
+        <th v-for="header in dSelect">
+          {{ mNormilizeHeader(header) }}
+        </th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr v-for="item in launches">
+        <td v-for="index in dSelect">
+          <span v-if="mIsImage(index)">
+            <figure class="image is-128x128" v-for="img in mGetItem(item, index)">
+              <img :src="img">
+            </figure>
+          </span>
+          <span v-else>
+            {{ mGetItem(item, index) }}
+          </span>
+        </td>
+      </tr>
+      </tbody>
+    </table>
   </div>
 </template>
+
+<style>
+.center {
+  align-items: center;
+  height: 90vw;
+}
+</style>
 
 <script>
 export default {
   name: 'HelloWorld',
   props: {
     msg: String
+  },
+  data() {
+    return {
+      dAnimateIn: true,
+      launches: [],
+      dSelect: '',
+      options: [
+        {label: 'launch site', value: 'launch_site.site_name_long'},
+        {label: 'details', value: 'details'},
+        {label: 'images', value: 'links.flickr_images'},
+        {label: 'mission name', value: 'mission_name'},
+        {label: 'launch year', value: 'launch_year'},
+        {label: 'launch success', value: 'launch_success'},
+      ]
+    }
+  },
+  methods: {
+    mReset() {
+      let vm = this;
+      const element = document.querySelector('#launchTable');
+      element.classList.remove('animate__backInUp');
+      element.classList.add('animate__bounceOutLeft');
+
+      element.addEventListener('animationend', () => {
+        vm.launches = [];
+        element.classList.remove('animate__backInUp');
+        element.classList.add('animate__bounceOutLeft');
+      });
+    },
+    mNormilizeHeader(header) {
+      return header.replace('.', ' ').replace('_', ' ')
+    },
+    mIsImage(index) {
+      return index.includes('flickr_images')
+    },
+    mGetItem(item, index) {
+      if (!index.includes('.')) {
+        return item[index]
+      }
+      let toReturn = item;
+      index.split('.').forEach((item, key) => {
+        toReturn = toReturn[item];
+      })
+      return toReturn
+
+    },
+    mFetch() {
+      let vm = this;
+      let dataToSend = this.dSelect.map((item) => {
+        if (item.includes('.')) {
+          //outer element
+          let toReturn = item.split('.')[0];
+          toReturn += '{' + item.split('.')[1] + '}';
+          return toReturn
+        }
+        return item
+      })
+      console.log(dataToSend);
+      let query = `
+      {
+        launches(find: {mission_name: "Starlink*"}) {
+          ${dataToSend}
+        }
+      }
+      `
+      console.log(query);
+      axios.post('https://api.spacex.land/graphql/', {
+        query: query
+      })
+          .then(res => {
+            const element = document.querySelector('#buttonGroup');
+            element.classList.add('animate__bounceOutLeft');
+
+            element.addEventListener('animationend', () => {
+
+              const element = document.querySelector('#buttonGroup');
+              element.classList.remove('animate__bounceOutLeft');
+              element.classList.add('animate__bounceInLeft');
+                vm.launches = res.data.data.launches
+
+              element.addEventListener('animationend', () => {
+                element.classList.remove('animate__bounceOutLeft');
+              });
+            });
+          })
+    }
   }
 }
 </script>
-
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
-}
-</style>
